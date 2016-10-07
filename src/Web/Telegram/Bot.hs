@@ -33,8 +33,11 @@ module Web.Telegram.Bot (
   , storyBot
   , defaultConfig
   , runBot
+  -- ** Re-exports
+  , lift
   ) where
 
 import Web.Telegram.Bot.Internal
 import Web.Telegram.Bot.Types
 import Web.Telegram.Bot.Story
+import Pipes (lift)
