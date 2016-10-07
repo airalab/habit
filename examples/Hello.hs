@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 module Main where
 
-import Control.Concurrent (threadDelay)
 import Data.Text (Text, pack)
 import Data.Monoid ((<>))
 import Web.Telegram.Bot

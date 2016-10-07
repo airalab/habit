@@ -72,11 +72,6 @@ fromChan c = forever $ lift (readChan c) >>= yield
 toReply :: Monad m => (BotMessage -> m ()) -> Consumer BotMessage m ()
 toReply reply = forever $ await >>= lift . reply
 
-runAction :: Monad m => m BotMessage -> Pipe a BotMessage m ()
-runAction a = do
-    yield BotTyping
-    lift a >>= yield
-
 -- | Chat ID based message splitter
 storyHandler :: MVar (IntMap (Chan Message))
              -> Map Text Story
@@ -121,7 +116,7 @@ storyHandler varChatMap stories help token manager = go
                             -- Run story
                             _ <- forkIO $
                                 runEffect $ fromChan chan
-                                         >-> (story cid >>= runAction)
+                                         >-> (story cid >>= liftAction)
                                          >-> toReply (reply cid)
                             return ()
         go _ = return ()

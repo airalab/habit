@@ -26,12 +26,13 @@
 --
 module Web.Telegram.Bot.Story where
 
+import Control.Exception (try, SomeException, displayException)
 import Control.Monad.Error.Class (MonadError(throwError))
 import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.IO.Class (MonadIO(..))
 import Web.Telegram.API.Bot (Message, text)
 import Pipes (Pipe, await, yield, lift)
-import Data.Text (Text, unpack)
+import Data.Text (Text, unpack, pack)
 import Text.Read (readMaybe)
 
 -- | Story is a pipe from Message to question
@@ -92,17 +93,25 @@ instance Answer Word where
         v <- parse x
         return (fromIntegral (v :: Integer))
 
+-- | Lift 'BotMessage' generator into pipe
+liftAction :: IO BotMessage -> Pipe a BotMessage IO ()
+liftAction a = do
+    yield BotTyping
+    lift (handleError <$> try a) >>= yield
+  where handleError :: Either SomeException BotMessage -> BotMessage
+        handleError (Right a) = a
+        handleError (Left e) = BotText (pack $ displayException e)
+
 -- | 'Text' message question maker
-question :: (MonadIO m, Answer a) => m Text -> StoryT m a
+question :: Answer a => IO Text -> StoryT IO a
 question = question'
 
 -- | Generalized question story maker.
 -- The question send to user, when answer isn't parsed
 -- the error send to user and waiting for correct answer.
-question' :: (Question q, MonadIO m, Answer a) => m q -> StoryT m a
+question' :: (Question q, Answer a) => IO q -> StoryT IO a
 question' mq = do
-    yield BotTyping
-    yield . toMessage =<< lift mq
+    liftAction (toMessage <$> mq)
     res <- lift . runExceptT . parse =<< await
     case res of
         Left e  -> question (return e)
