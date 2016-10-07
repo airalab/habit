@@ -1,5 +1,5 @@
 name:                telegram-bot
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Telegram Bot microframework for Haskell
 description:         Please see README.md
 homepage:            https://github.com/akru/telegram-bot#readme
@@ -20,7 +20,6 @@ executable hello-bot
                      , text
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
-  
 
 library
   hs-source-dirs:      src

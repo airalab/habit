@@ -44,10 +44,15 @@ type StoryT = Pipe Message BotMessage
 data BotMessage
   = BotTyping
   | BotText Text
+  | BotKeyboard (Text, [[Text]])
 
 -- | Bot question conversion typeclass.
 class Question a where
     toMessage :: a -> BotMessage
+
+-- | Idenity instance
+instance Question BotMessage where
+    toMessage = id
 
 -- | Simple text question send text message from bot
 instance Question Text where
@@ -95,12 +100,16 @@ instance Answer Word where
 
 -- | Lift 'BotMessage' generator into pipe
 liftAction :: IO BotMessage -> Pipe a BotMessage IO ()
-liftAction a = do
+liftAction gen = do
     yield BotTyping
-    lift (handleError <$> try a) >>= yield
+    lift (handleError <$> try gen) >>= yield
   where handleError :: Either SomeException BotMessage -> BotMessage
         handleError (Right a) = a
         handleError (Left e) = BotText (pack $ displayException e)
+
+-- | Reply keyboard selection
+select :: Answer a => IO (Text, [[Text]]) -> StoryT IO a
+select = question' . fmap BotKeyboard
 
 -- | 'Text' message question maker
 question :: Answer a => IO Text -> StoryT IO a
@@ -116,3 +125,7 @@ question' mq = do
     case res of
         Left e  -> question (return e)
         Right a -> return a
+
+-- | Return value wrapped with 'BotMessage'
+returnQ :: (Monad m, Question q) => q -> m BotMessage
+returnQ = return . toMessage

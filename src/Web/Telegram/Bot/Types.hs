@@ -16,7 +16,7 @@ import Control.Monad.Trans.Reader (ReaderT)
 import Network.HTTP.Client (Manager)
 import Web.Telegram.API.Bot (Token(..))
 import Data.String (IsString(..))
-import Data.Text (Text, pack)
+import Data.Text (pack)
 
 type Timeout = Int
 

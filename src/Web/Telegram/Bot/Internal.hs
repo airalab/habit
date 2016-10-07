@@ -114,10 +114,12 @@ storyHandler varChatMap stories help token manager = go
                             swapMVar varChatMap (IM.insert cid chan chatMap)
 
                             -- Run story
-                            _ <- forkIO $
+                            _ <- forkIO $ do
                                 runEffect $ fromChan chan
                                          >-> (story cid >>= liftAction)
                                          >-> toReply (reply cid)
+                                _ <- swapMVar varChatMap (IM.delete cid chatMap)
+                                return ()
                             return ()
         go _ = return ()
 
@@ -127,7 +129,16 @@ storyHandler varChatMap stories help token manager = go
             return ()
 
         reply cid (BotText t) = do
-            let r = sendMessageRequest (pack $ show cid) t
+            let r = (sendMessageRequest (pack $ show cid) t)
+                    { message_reply_markup = Just replyKeyboardHide }
+            _ <- sendMessage token r manager
+            return ()
+
+        reply cid (BotKeyboard (txt, btnTexts)) = do
+            let btns = fmap keyboardButton <$> btnTexts
+                keyboard = replyKeyboardMarkup btns
+                r = (sendMessageRequest (pack $ show cid) txt)
+                    { message_reply_markup = Just keyboard }
             _ <- sendMessage token r manager
             return ()
 

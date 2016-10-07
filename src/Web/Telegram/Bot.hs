@@ -25,8 +25,10 @@ module Web.Telegram.Bot (
   , Config(..)
   , Story
   -- ** Story makers
+  , select
   , question
   , question'
+  , returnQ
   -- ** Bot runners
   , storyBot
   , defaultConfig
