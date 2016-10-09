@@ -29,8 +29,8 @@ library
                      , Web.Telegram.Bot.Types
   other-modules:       Web.Telegram.Bot.Internal
   build-depends:       base >= 4.7 && < 5
+                     , telegram-api == 0.4.*
                      , http-client-tls
-                     , telegram-api
                      , transformers
                      , http-client
                      , containers
