@@ -26,25 +26,24 @@
 --
 module Web.Telegram.Bot.Story where
 
-import Control.Exception (try, SomeException, displayException)
 import Control.Monad.Error.Class (MonadError(throwError))
+import Web.Telegram.API.Bot (Message, Chat, text)
 import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.IO.Class (MonadIO(..))
-import Web.Telegram.API.Bot (Message, text)
 import Pipes (Pipe, await, yield, lift)
-import Data.Text (Text, unpack, pack)
+import Data.Text (Text, unpack)
 import Text.Read (readMaybe)
 
 -- | Story is a pipe from Message to question
 -- and result is a final message.
-type Story  = Int -> StoryT IO (IO BotMessage)
+type Story  = Chat -> StoryT IO (IO BotMessage)
 type StoryT = Pipe Message BotMessage
 
 -- | Bot replica message.
 data BotMessage
   = BotTyping
   | BotText Text
-  | BotKeyboard (Text, [[Text]])
+  | BotKeyboard Text [[Text]]
 
 -- | Bot question conversion typeclass.
 class Question a where
@@ -98,34 +97,22 @@ instance Answer Word where
         v <- parse x
         return (fromIntegral (v :: Integer))
 
--- | Lift 'BotMessage' generator into pipe
-liftAction :: IO BotMessage -> Pipe a BotMessage IO ()
-liftAction gen = do
-    yield BotTyping
-    lift (handleError <$> try gen) >>= yield
-  where handleError :: Either SomeException BotMessage -> BotMessage
-        handleError (Right a) = a
-        handleError (Left e) = BotText (pack $ displayException e)
-
 -- | Reply keyboard selection
-select :: Answer a => IO (Text, [[Text]]) -> StoryT IO a
-select = question' . fmap BotKeyboard
+select :: Answer a => Text -> [[Text]] -> StoryT IO a
+select q = replica . BotKeyboard q
 
--- | 'Text' message question maker
-question :: Answer a => IO Text -> StoryT IO a
-question = question'
+-- | Bot text question.
+question :: Answer a => Text -> StoryT IO a
+question = replica
 
 -- | Generalized question story maker.
 -- The question send to user, when answer isn't parsed
 -- the error send to user and waiting for correct answer.
-question' :: (Question q, Answer a) => IO q -> StoryT IO a
-question' mq = do
-    liftAction (toMessage <$> mq)
+replica :: (Question q, Answer a) => q -> StoryT IO a
+replica q = do
+    yield (toMessage q)
     res <- lift . runExceptT . parse =<< await
+    yield BotTyping
     case res of
-        Left e  -> question (return e)
+        Left e  -> question e
         Right a -> return a
-
--- | Return value wrapped with 'BotMessage'
-returnQ :: (Monad m, Question q) => q -> m BotMessage
-returnQ = return . toMessage

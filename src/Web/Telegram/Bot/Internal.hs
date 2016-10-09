@@ -11,10 +11,9 @@
 --
 module Web.Telegram.Bot.Internal (runBot, storyBot) where
 
-import           Control.Monad.Trans.Reader (ReaderT, runReaderT, ask)
+import           Control.Monad.Trans.Reader (runReaderT, ask)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.HTTP.Client (newManager, Manager)
-import           Control.Monad.IO.Class (MonadIO(..))
 import           Control.Monad (forever, (>=>))
 import           Control.Concurrent (forkIO)
 import           Control.Exception (throwIO)
@@ -32,25 +31,21 @@ import           Pipes
 
 -- | Try connection with Telegram Bot API
 trySelf :: Token -> Manager -> IO ()
-trySelf token manager = do
-    me <- getMe token manager
+trySelf tok mgr = do
+    me <- getMe tok mgr
     case me of
         Left e -> throwIO e
         Right GetMeResponse { user_result = u } ->
             putStrLn $ "Hello! I'm " ++ show (user_first_name u)
 
 -- | Infinity loop for getting updates from API
-updateLoop :: Token
-           -- ^ Bot API token
-           -> Manager
-           -- ^ Connection manager
-           -> Timeout
-           -- ^ Polling timeout
+updateLoop :: Manager
+           -> Config
            -> (Token -> Manager -> Update -> IO ())
            -- ^ Update handler
            -> IO ()
-updateLoop token manager timeout handler = go 0
-  where updates o = getUpdates token (Just o) Nothing (Just timeout) manager
+updateLoop mgr (Config to tok) handler = go 0
+  where updates o = getUpdates tok (Just o) Nothing (Just to) mgr
         go offset = do
             -- Take updates
             result <- fmap update_result <$> liftIO (updates offset)
@@ -60,7 +55,7 @@ updateLoop token manager timeout handler = go 0
                 Right [] -> go offset
                 Right r  -> do
                     -- Run handler for any update
-                    mapM_ (handler token manager) r
+                    mapM_ (handler tok mgr) r
                     -- Step for the new offset
                     go (maximum (update_id <$> r) + 1)
 
@@ -77,7 +72,7 @@ storyHandler :: MVar (IntMap (Chan Message))
              -> Map Text Story
              -> BotMessage
              -> Token -> Manager -> Update -> IO ()
-storyHandler varChatMap stories help token manager = go
+storyHandler varChatMap stories help tok mgr = go
   where go (Update { message = Just msg }) = do
             -- Get a chat id
             let cid = chat_id (chat msg)
@@ -95,7 +90,7 @@ storyHandler varChatMap stories help token manager = go
                     --  Want to cancel it?
                     case text msg of
                         Just "/cancel" -> do
-                            swapMVar varChatMap (IM.delete cid chatMap)
+                            _ <- swapMVar varChatMap (IM.delete cid chatMap)
                             reply cid help
 
                         _ -> return ()
@@ -111,13 +106,16 @@ storyHandler varChatMap stories help token manager = go
                         Just story -> do
                             -- Create chan and update chanMap
                             chan <- newChan
-                            swapMVar varChatMap (IM.insert cid chan chatMap)
+                            _ <- swapMVar varChatMap (IM.insert cid chan chatMap)
+
+                            -- Story pipeline
+                            let pipeline = fromChan chan
+                                        >-> (story (chat msg) >>= (lift >=> yield))
+                                        >-> toReply (reply cid)
 
                             -- Run story
                             _ <- forkIO $ do
-                                runEffect $ fromChan chan
-                                         >-> (story cid >>= liftAction)
-                                         >-> toReply (reply cid)
+                                runEffect pipeline
                                 _ <- swapMVar varChatMap (IM.delete cid chatMap)
                                 return ()
                             return ()
@@ -125,21 +123,21 @@ storyHandler varChatMap stories help token manager = go
 
         reply cid BotTyping = do
             let r = sendChatActionRequest (pack $ show cid) Typing
-            _ <- sendChatAction token r manager
+            _ <- sendChatAction tok r mgr
             return ()
 
         reply cid (BotText t) = do
             let r = (sendMessageRequest (pack $ show cid) t)
                     { message_reply_markup = Just replyKeyboardHide }
-            _ <- sendMessage token r manager
+            _ <- sendMessage tok r mgr
             return ()
 
-        reply cid (BotKeyboard (txt, btnTexts)) = do
+        reply cid (BotKeyboard txt btnTexts) = do
             let btns = fmap keyboardButton <$> btnTexts
                 keyboard = replyKeyboardMarkup btns
                 r = (sendMessageRequest (pack $ show cid) txt)
                     { message_reply_markup = Just keyboard }
-            _ <- sendMessage token r manager
+            _ <- sendMessage tok r mgr
             return ()
 
 -- | User story handler
@@ -151,7 +149,7 @@ storyBot help stories = do
         chats <- newMVar IM.empty
 
         -- Run update loop
-        updateLoop (token config) manager (timeout config) $
+        updateLoop manager config $
             storyHandler chats stories (toMessage help)
 
 -- | Run bot monad

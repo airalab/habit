@@ -10,9 +10,9 @@ type Surname = Text
 type Age     = Int
 
 hello :: Name -> Surname -> Age -> IO BotMessage
-hello name surname age =
-    returnQ $ "Hello, " <> name <> " " <> surname <> "!\n"
-           <> "You lost " <> (pack $ show age) <> " years =)"
+hello name surname age = return . toMessage $
+    "Hello, " <> name <> " " <> surname <> "!\n"
+ <> "You lost " <> (pack $ show age) <> " years =)"
 
 helloStory :: Story
 helloStory _ = hello <$> question "How your name?"
@@ -25,4 +25,4 @@ helpMessage = "Hello, I'm hello bot!"
 main :: IO ()
 main = runBot config $ do
             storyBot helpMessage [("/hello", helloStory)]
-  where config = defaultConfig { token = "bot..." }
+  where config = defaultConfig { token = Token "bot..." }

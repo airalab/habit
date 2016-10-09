@@ -13,10 +13,8 @@
 module Web.Telegram.Bot.Types where
 
 import Control.Monad.Trans.Reader (ReaderT)
-import Network.HTTP.Client (Manager)
 import Web.Telegram.API.Bot (Token(..))
-import Data.String (IsString(..))
-import Data.Text (pack)
+import Network.HTTP.Client (Manager)
 
 type Timeout = Int
 
@@ -29,16 +27,8 @@ data Config = Config
 
 -- | Default bot config
 defaultConfig :: Config
-defaultConfig = Config 10 ""
+defaultConfig = Config 10 (Token "")
 
 -- | Telegram bot monad
 type BotT = ReaderT (Manager, Config)
 type Bot  = BotT IO
-
--- | Overload string as IO result
-instance IsString a => IsString (IO a) where
-    fromString = return . fromString
-
--- | Overload string as 'Token'
-instance IsString Token where
-    fromString = Token . pack

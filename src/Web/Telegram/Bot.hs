@@ -23,15 +23,15 @@ module Web.Telegram.Bot (
   , Question(..)
   , Answer(..)
   , Config(..)
+  , Token(..)
   , Story
   -- ** Story makers
   , select
+  , replica
   , question
-  , question'
-  , returnQ
   -- ** Bot runners
-  , storyBot
   , defaultConfig
+  , storyBot
   , runBot
   -- ** Re-exports
   , lift
@@ -40,4 +40,5 @@ module Web.Telegram.Bot (
 import Web.Telegram.Bot.Internal
 import Web.Telegram.Bot.Types
 import Web.Telegram.Bot.Story
+import Web.Telegram.API.Bot
 import Pipes (lift)
