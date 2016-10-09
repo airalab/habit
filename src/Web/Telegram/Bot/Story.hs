@@ -28,11 +28,11 @@ module Web.Telegram.Bot.Story where
 
 import Control.Monad.Error.Class (MonadError(throwError))
 import Web.Telegram.API.Bot (Message, Chat, text)
+import Data.Text.Read (signed, decimal, double)
 import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.IO.Class (MonadIO(..))
 import Pipes (Pipe, await, yield, lift)
-import Data.Text (Text, unpack)
-import Text.Read (readMaybe)
+import Data.Text (Text, pack, unpack)
 
 -- | Story is a pipe from Message to question
 -- and result is a final message.
@@ -71,21 +71,16 @@ instance Answer Text where
 instance Answer Double where
     parse x = do
         t <- parse x
-        case readMaybe (unpack t) of
-            Just v -> return v
-            Nothing -> throwError "Please send floating value."
-
-instance Answer Float where
-    parse x = do
-        v <- parse x
-        return (realToFrac (v :: Double))
+        case signed double t of
+            Left e -> throwError (pack e)
+            Right (v, _) -> return v
 
 instance Answer Integer where
     parse x = do
         t <- parse x
-        case readMaybe (unpack t) of
-            Just v -> return v
-            Nothing -> throwError "Please send integer value."
+        case signed decimal t of
+            Left e -> throwError (pack e)
+            Right (v, _) -> return v
 
 instance Answer Int where
     parse x = do
