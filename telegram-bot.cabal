@@ -29,14 +29,13 @@ library
                      , Web.Telegram.Bot.Types
   other-modules:       Web.Telegram.Bot.Internal
   build-depends:       base >= 4.7 && < 5
-                     , telegram-api == 0.4.*
                      , http-client-tls
                      , transformers
+                     , telegram-api
                      , http-client
                      , containers
                      , pipes
                      , text
-                     , mtl
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
 

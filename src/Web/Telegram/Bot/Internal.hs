@@ -11,23 +11,21 @@
 --
 module Web.Telegram.Bot.Internal (runBot, storyBot) where
 
-import           Control.Monad.Trans.Reader (runReaderT, ask)
-import           Network.HTTP.Client.TLS (tlsManagerSettings)
-import           Network.HTTP.Client (newManager, Manager)
-import           Control.Monad (forever, (>=>))
-import           Control.Concurrent (forkIO)
-import           Control.Exception (throwIO)
-import           Control.Concurrent.Chan
-import           Control.Concurrent.MVar
-import           Web.Telegram.Bot.Story
-import           Web.Telegram.Bot.Types
-import           Data.Text (Text, pack)
-import           Web.Telegram.API.Bot
-import           Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
-import           Data.Map (Map)
-import qualified Data.Map as M
-import           Pipes
+import Control.Monad.Trans.Reader (runReaderT, ask)
+import Network.HTTP.Client.TLS (tlsManagerSettings)
+import Network.HTTP.Client (newManager, Manager)
+import Control.Monad (forever, (>=>))
+import Control.Concurrent (forkIO)
+import Control.Exception (throwIO)
+import Data.IntMap.Strict as I
+import Control.Concurrent.Chan
+import Control.Concurrent.MVar
+import Web.Telegram.Bot.Story
+import Web.Telegram.Bot.Types
+import Data.Text (Text, pack)
+import Data.Map.Strict as M
+import Web.Telegram.API.Bot
+import Pipes
 
 -- | Try connection with Telegram Bot API
 trySelf :: Token -> Manager -> IO ()
@@ -81,7 +79,7 @@ storyHandler varChatMap stories help tok mgr = go
             chatMap <- readMVar varChatMap
 
             -- Lookup chat id in the map
-            case IM.lookup cid chatMap of
+            case I.lookup cid chatMap of
 
                 -- Chat exist -> story is run now
                 Just chan -> do
@@ -90,7 +88,7 @@ storyHandler varChatMap stories help tok mgr = go
                     --  Want to cancel it?
                     case text msg of
                         Just "/cancel" -> do
-                            _ <- swapMVar varChatMap (IM.delete cid chatMap)
+                            _ <- swapMVar varChatMap (I.delete cid chatMap)
                             reply cid help
 
                         _ -> return ()
@@ -106,7 +104,7 @@ storyHandler varChatMap stories help tok mgr = go
                         Just story -> do
                             -- Create chan and update chanMap
                             chan <- newChan
-                            _ <- swapMVar varChatMap (IM.insert cid chan chatMap)
+                            _ <- swapMVar varChatMap (I.insert cid chan chatMap)
 
                             -- Story pipeline
                             let pipeline = fromChan chan
@@ -116,7 +114,7 @@ storyHandler varChatMap stories help tok mgr = go
                             -- Run story
                             _ <- forkIO $ do
                                 runEffect pipeline
-                                _ <- swapMVar varChatMap (IM.delete cid chatMap)
+                                _ <- swapMVar varChatMap (I.delete cid chatMap)
                                 return ()
                             return ()
         go _ = return ()
@@ -146,7 +144,7 @@ storyBot help stories = do
     (manager, config) <- ask
     liftIO $ do
         -- Create map from user to it story
-        chats <- newMVar IM.empty
+        chats <- newMVar I.empty
 
         -- Run update loop
         updateLoop manager config $

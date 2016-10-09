@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts  #-}
 -- |
 -- Module      :  Web.Telegram.Bot.Story
 -- Copyright   :  Alexander Krupenkin 2016
@@ -26,13 +24,12 @@
 --
 module Web.Telegram.Bot.Story where
 
-import Control.Monad.Error.Class (MonadError(throwError))
+import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Web.Telegram.API.Bot (Message, Chat, text)
 import Data.Text.Read (signed, decimal, double)
-import Control.Monad.Trans.Except (runExceptT)
 import Control.Monad.IO.Class (MonadIO(..))
 import Pipes (Pipe, await, yield, lift)
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, pack)
 
 -- | Story is a pipe from Message to question
 -- and result is a final message.
@@ -59,27 +56,27 @@ instance Question Text where
 
 -- | The value can be passed to story handler function.
 class Answer a where
-    parse :: (MonadError Text m, MonadIO m) => Message -> m a
+    parse :: MonadIO m => Message -> ExceptT Text m a
 
 -- | Simple text answer, pass any text message
 instance Answer Text where
     parse x =
         case text x of
             Just t  -> return t
-            Nothing -> throwError "Please send text message."
+            Nothing -> throwE "Please send text message."
 
 instance Answer Double where
     parse x = do
         t <- parse x
         case signed double t of
-            Left e -> throwError (pack e)
+            Left e -> throwE (pack e)
             Right (v, _) -> return v
 
 instance Answer Integer where
     parse x = do
         t <- parse x
         case signed decimal t of
-            Left e -> throwError (pack e)
+            Left e -> throwE (pack e)
             Right (v, _) -> return v
 
 instance Answer Int where

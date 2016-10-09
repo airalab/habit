@@ -1,13 +1,12 @@
-## Telegram API Bot microframework for Haskell
+## Telegram Bot microframework for Haskell
 
 [![Build Status](https://travis-ci.org/akru/telegram-bot.svg?branch=master)](https://travis-ci.org/akru/telegram-bot)
 
 ### Install
 
-    $ git clone https://github.com/akru/telegram-bot
-    $ cd telegram-bot
+    $ git clone https://github.com/akru/telegram-bot && cd telegram-bot
     $ stack setup
-    $ stack build
+    $ stack ghci
 
 ### Run your story
 
@@ -42,7 +41,7 @@ command an story.
 main :: IO ()
 main = runBot config $ do
             storyBot helpMessage [("/hello", helloStory)]
-  where config = defaultConfig { token = "bot..." }
+  where config = defaultConfig { token = Token "bot..." }
 ```
 
 Full example [text](examples/Hello.hs).
