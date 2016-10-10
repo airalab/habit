@@ -108,7 +108,7 @@ storyHandler varChatMap stories help tok mgr = go
 
                             -- Story pipeline
                             let pipeline = fromChan chan
-                                        >-> (story (chat msg) >>= (lift >=> yield))
+                                        >-> (story (chat msg) >>= yield)
                                         >-> toReply (reply cid)
 
                             -- Run story

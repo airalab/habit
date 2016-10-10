@@ -12,7 +12,7 @@
 --
 -- @
 --      hello :: Monad m => Text -> Text -> Int -> m BotMessage
---      hello name surname age = return . toMessage $
+--      hello name surname age = toMessage $
 --          "Hello, " <> name <> " " <> surname <> "!\n"
 --       <> "You lost " <> (pack $ show age) <> " years =)"
 --
@@ -27,13 +27,13 @@ module Web.Telegram.Bot.Story where
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Web.Telegram.API.Bot (Message, Chat, text)
 import Data.Text.Read (signed, decimal, double)
-import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.IO.Class (MonadIO)
 import Pipes (Pipe, await, yield, lift)
 import Data.Text (Text, pack)
 
--- | Story is a pipe from Message to question
--- and result is a final message.
-type Story  = Chat -> StoryT IO (IO BotMessage)
+-- | Story is a pipe from user message to bot message
+-- and result is a final message bot.
+type Story  = Chat -> StoryT IO BotMessage
 type StoryT = Pipe Message BotMessage
 
 -- | Bot replica message.
@@ -90,21 +90,23 @@ instance Answer Word where
         return (fromIntegral (v :: Integer))
 
 -- | Reply keyboard selection
-select :: Answer a => Text -> [[Text]] -> StoryT IO a
+select :: (MonadIO m, Answer a) => Text -> [[Text]] -> StoryT m a
+{-# INLINE select #-}
 select q = replica . BotKeyboard q
 
 -- | Bot text question.
-question :: Answer a => Text -> StoryT IO a
+question :: (MonadIO m, Answer a) => Text -> StoryT m a
+{-# INLINE question #-}
 question = replica
 
--- | Generalized question story maker.
+-- | Generalized story maker.
 -- The question send to user, when answer isn't parsed
 -- the error send to user and waiting for correct answer.
-replica :: (Question q, Answer a) => q -> StoryT IO a
+replica :: (Question q, MonadIO m, Answer a) => q -> StoryT m a
 replica q = do
     yield (toMessage q)
     res <- lift . runExceptT . parse =<< await
     yield BotTyping
     case res of
-        Left e  -> question e
+        Left e  -> replica e
         Right a -> return a

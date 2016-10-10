@@ -9,10 +9,10 @@ type Name    = Text
 type Surname = Text
 type Age     = Int
 
-hello :: Name -> Surname -> Age -> IO BotMessage
-hello name surname age = return msg
-  where msg = toMessage $ "Hello, " <> name <> " " <> surname <> "!\n"
-                       <> "You lost " <> (pack $ show age) <> " years =)"
+hello :: Name -> Surname -> Age -> BotMessage
+hello name surname age =
+    toMessage $ "Hello, " <> name <> " " <> surname <> "!\n"
+             <> "You lost " <> (pack $ show age) <> " years =)"
 
 helloStory :: Story
 helloStory _ = hello <$> question "How your name?"
