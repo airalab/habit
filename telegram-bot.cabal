@@ -1,5 +1,5 @@
 name:                telegram-bot
-version:             0.3.0.0
+version:             0.4.0.0
 synopsis:            Telegram Bot microframework for Haskell
 description:         Please see README.md
 homepage:            https://github.com/akru/telegram-bot#readme
@@ -28,7 +28,7 @@ library
                      , Web.Telegram.Bot.Story
                      , Web.Telegram.Bot.Types
   other-modules:       Web.Telegram.Bot.Internal
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       base >= 4.7 && < 4.10
                      , http-client-tls
                      , transformers
                      , telegram-api

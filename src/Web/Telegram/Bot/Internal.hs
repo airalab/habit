@@ -33,7 +33,7 @@ trySelf tok mgr = do
     me <- getMe tok mgr
     case me of
         Left e -> throwIO e
-        Right GetMeResponse { user_result = u } ->
+        Right (Response u) ->
             putStrLn $ "Hello! I'm " ++ show (user_first_name u)
 
 -- | Infinity loop for getting updates from API
@@ -46,16 +46,16 @@ updateLoop mgr (Config to tok) handler = go 0
   where updates o = getUpdates tok (Just o) Nothing (Just to) mgr
         go offset = do
             -- Take updates
-            result <- fmap update_result <$> liftIO (updates offset)
+            updates <- fmap result <$> liftIO (updates offset)
             -- Check for errors
-            case result of
+            case updates of
                 Left e   -> liftIO (throwIO e)
                 Right [] -> go offset
-                Right r  -> do
+                Right xs  -> do
                     -- Run handler for any update
-                    mapM_ (handler tok mgr) r
+                    mapM_ (handler tok mgr) xs
                     -- Step for the new offset
-                    go (maximum (update_id <$> r) + 1)
+                    go (maximum (update_id <$> xs) + 1)
 
 -- | 'Producer' from 'Chan' creator
 fromChan :: Chan a -> Producer a IO ()

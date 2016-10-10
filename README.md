@@ -1,4 +1,4 @@
-## Telegram Bot microframework for Haskell
+## Telegram bot with Haskell
 
 [![Build Status](https://travis-ci.org/akru/telegram-bot.svg?branch=master)](https://travis-ci.org/akru/telegram-bot)
 

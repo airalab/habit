@@ -19,11 +19,15 @@
 --
 module Web.Telegram.Bot (
   -- * Exported types
-    BotMessage(..)
+  -- ** API types
+    module Web.Telegram.API.Bot.Data
+  -- ** Story types
+  , BotMessage(..)
   , Question(..)
   , Answer(..)
   , Config(..)
   , Token(..)
+  , StoryT
   , Story
   -- ** Story makers
   , select
@@ -37,6 +41,7 @@ module Web.Telegram.Bot (
   , lift
   ) where
 
+import Web.Telegram.API.Bot.Data
 import Web.Telegram.Bot.Internal
 import Web.Telegram.Bot.Types
 import Web.Telegram.Bot.Story
