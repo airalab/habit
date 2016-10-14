@@ -25,4 +25,5 @@ helpMessage = "Hello, I'm hello bot!"
 main :: IO ()
 main = runBot config $ do
             storyBot helpMessage [("/hello", helloStory)]
-  where config = defaultConfig { token = Token "bot..." }
+  where config = defaultConfig
+            { token = Token "bot..." }

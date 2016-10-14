@@ -22,8 +22,8 @@ module Web.Telegram.Bot (
   -- ** API types
     module Web.Telegram.API.Bot.Data
   -- ** Story types
+  , ToBotMessage(..)
   , BotMessage(..)
-  , Question(..)
   , Answer(..)
   , Config(..)
   , Token(..)
@@ -34,8 +34,10 @@ module Web.Telegram.Bot (
   , replica
   , question
   -- ** Bot runners
+  , sendMessageBot
   , defaultConfig
   , storyBot
+  , forkBot
   , runBot
   -- ** Re-exports
   , lift

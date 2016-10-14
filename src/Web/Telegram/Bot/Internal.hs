@@ -9,17 +9,17 @@
 --
 -- Telegram Bot runners.
 --
-module Web.Telegram.Bot.Internal (runBot, storyBot) where
+module Web.Telegram.Bot.Internal (runBot, storyBot, sendMessageBot, forkBot) where
 
 import Control.Monad.Trans.Reader (runReaderT, ask)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Client (newManager, Manager)
-import Control.Monad (forever, (>=>))
-import Control.Concurrent (forkIO)
-import Control.Exception (throwIO)
+import Control.Concurrent (forkIO, ThreadId)
+import Control.Exception (throwIO, finally)
 import Data.IntMap.Strict as I
 import Control.Concurrent.Chan
 import Control.Concurrent.MVar
+import Control.Monad (forever)
 import Web.Telegram.Bot.Story
 import Web.Telegram.Bot.Types
 import Data.Text (Text, pack)
@@ -37,119 +37,119 @@ trySelf tok mgr = do
             putStrLn $ "Hello! I'm " ++ show (user_first_name u)
 
 -- | Infinity loop for getting updates from API
-updateLoop :: Manager
-           -> Config
-           -> (Token -> Manager -> Update -> IO ())
+updateLoop :: (Update -> Bot ())
            -- ^ Update handler
-           -> IO ()
-updateLoop mgr (Config to tok) handler = go 0
-  where updates o = getUpdates tok (Just o) Nothing (Just to) mgr
+           -> Bot ()
+updateLoop handler = go 0
+  where updates o t = getUpdates t (Just o) Nothing . Just
         go offset = do
+            (manager, config) <- ask
             -- Take updates
-            updates <- fmap result <$> liftIO (updates offset)
+            upd <- liftIO $
+                updates offset (token config) (timeout config) manager
             -- Check for errors
-            case updates of
+            case result <$> upd of
                 Left e   -> liftIO (throwIO e)
                 Right [] -> go offset
                 Right xs  -> do
                     -- Run handler for any update
-                    mapM_ (handler tok mgr) xs
+                    mapM_ handler xs
                     -- Step for the new offset
                     go (maximum (update_id <$> xs) + 1)
 
 -- | 'Producer' from 'Chan' creator
-fromChan :: Chan a -> Producer a IO ()
-fromChan c = forever $ lift (readChan c) >>= yield
+fromChan :: MonadIO m => Chan a -> Producer a m ()
+fromChan c = forever $ liftIO (readChan c) >>= yield
 
 -- | Incoming messages will be sended
-toReply :: Monad m => (BotMessage -> m ()) -> Consumer BotMessage m ()
-toReply reply = forever $ await >>= lift . reply
+toSender :: MonadIO m => (BotMessage -> m ()) -> Consumer BotMessage m ()
+toSender sender = forever $ await >>= lift . sender
 
 -- | Chat ID based message splitter
 storyHandler :: MVar (IntMap (Chan Message))
              -> Map Text Story
              -> BotMessage
-             -> Token -> Manager -> Update -> IO ()
-storyHandler varChatMap stories help tok mgr = go
+             -> Update
+             -> Bot ()
+storyHandler chats stories help = go
   where go (Update { message = Just msg }) = do
             -- Get a chat id
-            let cid = chat_id (chat msg)
+            let cid           = chat_id (chat msg)
+                newStory chan = modifyMVar_ chats (return . I.insert cid chan)
+                deleteStory   = modifyMVar_ chats (return . I.delete cid)
 
-            -- Read chat map
-            chatMap <- readMVar varChatMap
-
+            chatMap <- liftIO (readMVar chats)
             -- Lookup chat id in the map
             case I.lookup cid chatMap of
-
-                -- Chat exist -> story is run now
+                -- Chat exist => story is run now
                 Just chan -> do
-                    writeChan chan msg
-
                     --  Want to cancel it?
                     case text msg of
                         Just "/cancel" -> do
-                            _ <- swapMVar varChatMap (I.delete cid chatMap)
-                            reply cid help
+                            liftIO deleteStory
+                            sendMessageBot (chat msg) help
 
-                        _ -> return ()
-
+                        _ -> liftIO (writeChan chan msg)
 
                 -- Is no runned stories
                 Nothing ->
                     case text msg >>= flip M.lookup stories of
                         -- Unknown story, try to help
-                        Nothing -> reply cid help
+                        Nothing -> sendMessageBot (chat msg) help
 
                         -- Story exist
                         Just story -> do
                             -- Create chan and update chanMap
-                            chan <- newChan
-                            _ <- swapMVar varChatMap (I.insert cid chan chatMap)
+                            chan <- liftIO newChan
+                            liftIO (newStory chan)
 
                             -- Story pipeline
                             let pipeline = fromChan chan
                                         >-> (story (chat msg) >>= yield)
-                                        >-> toReply (reply cid)
+                                        >-> toSender (sendMessageBot (chat msg))
 
-                            -- Run story
-                            _ <- forkIO $ do
-                                runEffect pipeline
-                                _ <- swapMVar varChatMap (I.delete cid chatMap)
-                                return ()
+                            -- Story effect
+                            (manager, config) <- ask
+                            let runStory = runReaderT (runEffect pipeline)
+                                                      (manager, config)
+
+                            -- Run story in separate thread
+                            _ <- liftIO $ forkIO $ do
+                                runStory `finally` deleteStory
                             return ()
         go _ = return ()
 
-        reply cid BotTyping = do
-            let r = sendChatActionRequest (pack $ show cid) Typing
-            _ <- sendChatAction tok r mgr
-            return ()
+sendMessageBot :: Chat -> BotMessage -> Bot ()
+sendMessageBot c msg = do
+    (manager, config) <- ask
+    liftIO $ send (textChatId c) (token config) manager msg
+  where textChatId = pack . show . chat_id
 
-        reply cid (BotText t) = do
-            let r = (sendMessageRequest (pack $ show cid) t)
-                    { message_reply_markup = Just replyKeyboardHide
-                    , message_parse_mode = Just Markdown }
-            _ <- sendMessage tok r mgr
-            return ()
+        send cid tok mgr BotTyping =
+            let r = sendChatActionRequest cid Typing
+             in sendChatAction tok r mgr >> return ()
 
-        reply cid (BotKeyboard txt btnTexts) = do
-            let btns = fmap keyboardButton <$> btnTexts
+        send cid tok mgr (BotText t) =
+            let r = (sendMessageRequest cid t)
+                  { message_reply_markup = Just replyKeyboardHide
+                  , message_parse_mode   = Just Markdown }
+             in sendMessage tok r mgr >> return ()
+
+        send cid tok mgr (BotKeyboard txt btnTexts) =
+            let btns     = fmap keyboardButton <$> btnTexts
                 keyboard = replyKeyboardMarkup btns
-                r = (sendMessageRequest (pack $ show cid) txt)
-                    { message_reply_markup = Just keyboard }
-            _ <- sendMessage tok r mgr
-            return ()
+                r = (sendMessageRequest cid txt)
+                  { message_reply_markup = Just keyboard
+                  , message_parse_mode   = Just Markdown }
+             in sendMessage tok r mgr >> return ()
 
 -- | User story handler
-storyBot :: Question help => help -> Map Text Story -> Bot ()
+storyBot :: ToBotMessage help => help -> Map Text Story -> Bot ()
 storyBot help stories = do
-    (manager, config) <- ask
-    liftIO $ do
-        -- Create map from user to it story
-        chats <- newMVar I.empty
-
-        -- Run update loop
-        updateLoop manager config $
-            storyHandler chats stories (toMessage help)
+    -- Create map from user to it story
+    chats <- liftIO (newMVar I.empty)
+    -- Run update loop
+    updateLoop (storyHandler chats stories $ toMessage help)
 
 -- | Run bot monad
 runBot :: Config -> Bot a -> IO a
@@ -160,3 +160,7 @@ runBot config bot = do
     trySelf (token config) manager
     -- Run bot
     runReaderT bot (manager, config)
+
+-- Fork bot thread
+forkBot :: Bot () -> Bot ThreadId
+forkBot bot = ask >>= liftIO . forkIO . runReaderT bot

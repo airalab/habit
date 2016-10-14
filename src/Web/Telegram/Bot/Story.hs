@@ -29,29 +29,31 @@ import Web.Telegram.API.Bot (Message, Chat, text)
 import Data.Text.Read (signed, decimal, double)
 import Control.Monad.IO.Class (MonadIO)
 import Pipes (Pipe, await, yield, lift)
+import Web.Telegram.Bot.Types (Bot)
 import Data.Text (Text, pack)
 
 -- | Story is a pipe from user message to bot message
 -- and result is a final message bot.
-type Story  = Chat -> StoryT IO BotMessage
+type Story  = Chat -> StoryT Bot BotMessage
 type StoryT = Pipe Message BotMessage
 
--- | Bot replica message.
+-- | Bot message data.
 data BotMessage
   = BotTyping
   | BotText Text
   | BotKeyboard Text [[Text]]
+  deriving Show
 
--- | Bot question conversion typeclass.
-class Question a where
+-- | Bot message typeclass for conversion.
+class ToBotMessage a where
     toMessage :: a -> BotMessage
 
 -- | Idenity instance
-instance Question BotMessage where
+instance ToBotMessage BotMessage where
     toMessage = id
 
 -- | Simple text question send text message from bot
-instance Question Text where
+instance ToBotMessage Text where
     toMessage = BotText
 
 -- | The value can be passed to story handler function.
@@ -100,11 +102,11 @@ question :: (MonadIO m, Answer a) => Text -> StoryT m a
 question = replica
 
 -- | Generalized story maker.
--- The question send to user, when answer isn't parsed
+-- The replica send to user, when answer isn't parsed
 -- the error send to user and waiting for correct answer.
-replica :: (Question q, MonadIO m, Answer a) => q -> StoryT m a
-replica q = do
-    yield (toMessage q)
+replica :: (ToBotMessage a, MonadIO m, Answer b) => a -> StoryT m b
+replica msg = do
+    yield (toMessage msg)
     res <- lift . runExceptT . parse =<< await
     yield BotTyping
     case res of
