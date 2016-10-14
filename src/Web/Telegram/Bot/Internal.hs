@@ -126,7 +126,8 @@ storyHandler varChatMap stories help tok mgr = go
 
         reply cid (BotText t) = do
             let r = (sendMessageRequest (pack $ show cid) t)
-                    { message_reply_markup = Just replyKeyboardHide }
+                    { message_reply_markup = Just replyKeyboardHide
+                    , message_parse_mode = Just Markdown }
             _ <- sendMessage tok r mgr
             return ()
 
