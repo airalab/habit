@@ -28,7 +28,7 @@ type Name    = Text
 type Surname = Text
 type Age     = Int
 
-hello :: Name -> Surname -> Age -> IO BotMessage
+hello :: Monad m => Name -> Surname -> Age -> m BotMessage
 hello name surname age = do
     return . toMessage $ "Hello, " <> name <> " " <> surname <> "!\n"
                       <> "You lost " <> (pack $ show age) <> " years =)"

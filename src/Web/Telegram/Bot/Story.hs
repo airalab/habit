@@ -30,6 +30,7 @@ import Data.Text.Read (signed, decimal, double)
 import Control.Monad.IO.Class (MonadIO)
 import Pipes (Pipe, await, yield, lift)
 import Web.Telegram.Bot.Types (Bot)
+import qualified Data.Text as T
 import Data.Text (Text, pack)
 
 -- | Story is a pipe from user message to bot message
@@ -72,14 +73,18 @@ instance Answer Double where
         t <- parse x
         case signed double t of
             Left e -> throwE (pack e)
-            Right (v, _) -> return v
+            Right (v, x) -> if T.null x
+                            then return v
+                            else throwE "Please use only 0-9 and '.' chars."
 
 instance Answer Integer where
     parse x = do
         t <- parse x
         case signed decimal t of
             Left e -> throwE (pack e)
-            Right (v, _) -> return v
+            Right (v, x) -> if T.null x
+                            then return v
+                            else throwE "Please use only 0-9 chars."
 
 instance Answer Int where
     parse x = do
