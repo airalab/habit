@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric     #-}
 -- |
 -- Module      :  Web.Telegram.Bot.Types
 -- Copyright   :  Alexander Krupenkin 2016
@@ -6,15 +7,17 @@
 --
 -- Maintainer  :  mail@akru.me
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  noportable
 --
 -- Bot types and helper instances.
 --
 module Web.Telegram.Bot.Types where
 
+import Data.Aeson (FromJSON(..), ToJSON(..))
 import Control.Monad.Trans.Reader (ReaderT)
 import Web.Telegram.API.Bot (Token(..))
 import Network.HTTP.Client (Manager)
+import GHC.Generics (Generic)
 
 type Timeout = Int
 
@@ -23,7 +26,16 @@ data Config = Config
     -- ^ Polling timeout in seconds
   , token   :: Token
     -- ^ Telegram Bot API private token
-  } deriving Show
+  } deriving (Generic, Show)
+
+instance FromJSON Config
+instance ToJSON Config
+
+instance FromJSON Token where
+    parseJSON = fmap Token . parseJSON
+
+instance ToJSON Token where
+    toJSON (Token t) = toJSON t
 
 -- | Default bot config
 defaultConfig :: Config
