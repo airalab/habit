@@ -28,8 +28,8 @@ import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Web.Telegram.API.Bot (Message, Chat, text)
 import Data.Text.Read (signed, decimal, double)
 import Control.Monad.IO.Class (MonadIO)
-import Pipes (Pipe, await, yield, lift)
 import Web.Telegram.Bot.Types (Bot)
+import Pipes (Pipe, await, yield)
 import qualified Data.Text as T
 import Data.Text (Text, pack)
 
@@ -112,7 +112,7 @@ question = replica
 replica :: (ToBotMessage a, MonadIO m, Answer b) => a -> StoryT m b
 replica msg = do
     yield (toMessage msg)
-    res <- lift . runExceptT . parse =<< await
+    res <- runExceptT . parse =<< await
     yield BotTyping
     case res of
         Left e  -> replica e
