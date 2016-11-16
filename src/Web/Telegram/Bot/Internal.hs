@@ -11,11 +11,11 @@
 --
 module Web.Telegram.Bot.Internal (runBot, storyBot, sendMessageBot, forkBot) where
 
+import Control.Concurrent (forkIO, forkFinally, killThread, ThreadId)
 import Control.Monad.Trans.Reader (runReaderT, ask)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Client (newManager, Manager)
-import Control.Concurrent (forkIO, ThreadId)
-import Control.Exception (throwIO, finally)
+import Control.Exception (throwIO)
 import Data.IntMap.Strict as I
 import Control.Concurrent.Chan
 import Control.Concurrent.MVar
@@ -66,7 +66,7 @@ toSender :: MonadIO m => (BotMessage -> m ()) -> Consumer BotMessage m ()
 toSender sender = forever $ await >>= lift . sender
 
 -- | Chat ID based message splitter
-storyHandler :: MVar (IntMap (Chan Message))
+storyHandler :: MVar (IntMap (Chan Message, ThreadId))
              -> Map Text Story
              -> BotMessage
              -> Update
@@ -75,18 +75,18 @@ storyHandler chats stories help = go
   where go (Update { message = Just msg }) = do
             -- Get a chat id
             let cid           = chat_id (chat msg)
-                newStory chan = modifyMVar_ chats (return . I.insert cid chan)
+                newStory item = modifyMVar_ chats (return . I.insert cid item)
                 deleteStory   = modifyMVar_ chats (return . I.delete cid)
 
             chatMap <- liftIO (readMVar chats)
             -- Lookup chat id in the map
             case I.lookup cid chatMap of
                 -- Chat exist => story is run now
-                Just chan -> do
-                    --  Want to cancel it?
+                Just (chan, tid) -> do
+                    -- Want to cancel it?
                     case text msg of
                         Just "/cancel" -> do
-                            liftIO deleteStory
+                            liftIO (killThread tid)
                             sendMessageBot (chat msg) help
 
                         _ -> liftIO (writeChan chan msg)
@@ -99,9 +99,8 @@ storyHandler chats stories help = go
 
                         -- Story exist
                         Just story -> do
-                            -- Create chan and update chanMap
+                            -- Create chan
                             chan <- liftIO newChan
-                            liftIO (newStory chan)
 
                             -- Story pipeline
                             let pipeline = fromChan chan
@@ -114,9 +113,10 @@ storyHandler chats stories help = go
                                                       (manager, config)
 
                             -- Run story in separate thread
-                            _ <- liftIO $ forkIO $ do
-                                runStory `finally` deleteStory
-                            return ()
+                            tid <- liftIO $ forkFinally runStory
+                                                        (const deleteStory)
+                            -- Update chanMap
+                            liftIO (newStory (chan, tid))
         go _ = return ()
 
 sendMessageBot :: Chat -> BotMessage -> Bot ()
