@@ -24,8 +24,8 @@ module Web.Telegram.Bot (
   -- ** Story types
   , ToBotMessage(..)
   , BotMessage(..)
+  , BotConfig(..)
   , Answer(..)
-  , Config(..)
   , Token(..)
   , StoryT
   , Story
@@ -35,7 +35,6 @@ module Web.Telegram.Bot (
   , question
   -- ** Bot runners
   , sendMessageBot
-  , defaultConfig
   , storyBot
   , forkBot
   , runBot

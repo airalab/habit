@@ -25,7 +25,7 @@
 module Web.Telegram.Bot.Story where
 
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
-import Web.Telegram.API.Bot (Message, Chat, text)
+import Web.Telegram.API.Bot (Message, Chat, User, text)
 import Data.Text.Read (signed, decimal, double)
 import Control.Monad.IO.Class (MonadIO)
 import Web.Telegram.Bot.Types (Bot)
@@ -35,7 +35,7 @@ import Data.Text (Text, pack)
 
 -- | Story is a pipe from user message to bot message
 -- and result is a final message bot.
-type Story  = Chat -> StoryT Bot BotMessage
+type Story a = (User, Chat) -> StoryT (Bot a) BotMessage
 type StoryT = Pipe Message BotMessage
 
 -- | Bot message data.
@@ -73,9 +73,8 @@ instance Answer Double where
         t <- parse x
         case signed double t of
             Left e -> throwE (pack e)
-            Right (v, x) -> if T.null x
-                            then return v
-                            else throwE "Please use only 0-9 and '.' chars."
+            Right (v, "") -> return v
+            Right _       -> throwE "Please use only 0-9 and '.' chars."
 
 instance Answer Integer where
     parse x = do

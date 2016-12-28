@@ -14,7 +14,7 @@ hello name surname age =
     toMessage $ "Hello, " <> name <> " " <> surname <> "!\n"
              <> "You lost " <> (pack $ show age) <> " years =)"
 
-helloStory :: Story
+helloStory :: Story MyBot
 helloStory _ = hello <$> question "How your name?"
                      <*> question "How your surname?"
                      <*> question "How old are you?"
@@ -22,8 +22,10 @@ helloStory _ = hello <$> question "How your name?"
 helpMessage :: Text
 helpMessage = "Hello, I'm hello bot!"
 
+data MyBot = MyBot
+instance BotConfig MyBot where
+    authToken = const $ Token "bot..."
+
 main :: IO ()
-main = runBot config $ do
+main = runBot MyBot $ do
             storyBot helpMessage [("/hello", helloStory)]
-  where config = defaultConfig
-            { token = Token "bot..." }

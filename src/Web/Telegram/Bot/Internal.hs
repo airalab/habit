@@ -37,16 +37,17 @@ trySelf tok mgr = do
             putStrLn $ "Hello! I'm " ++ show (user_first_name u)
 
 -- | Infinity loop for getting updates from API
-updateLoop :: (Update -> Bot ())
+updateLoop :: BotConfig a
+           => (Update -> Bot a ())
            -- ^ Update handler
-           -> Bot ()
+           -> Bot a ()
 updateLoop handler = go 0
   where updates o t = getUpdates t (Just o) Nothing . Just
         go offset = do
             (manager, config) <- ask
             -- Take updates
             upd <- liftIO $
-                updates offset (token config) (timeout config) manager
+                updates offset (authToken config) (pollTimeout config) manager
             -- Check for errors
             case result <$> upd of
                 Left e   -> liftIO (throwIO e)
@@ -66,13 +67,15 @@ toSender :: MonadIO m => (BotMessage -> m ()) -> Consumer BotMessage m ()
 toSender sender = forever $ await >>= lift . sender
 
 -- | Chat ID based message splitter
-storyHandler :: MVar (IntMap (Chan Message, ThreadId))
-             -> Map Text Story
+storyHandler :: BotConfig a
+             => MVar (IntMap (Chan Message, ThreadId))
+             -> Map Text (Story a)
              -> BotMessage
              -> Update
-             -> Bot ()
+             -> Bot a ()
 storyHandler chats stories help = go
-  where go (Update { message = Just msg }) = do
+  where go (Update{message =
+                Just msg@(Message {from = Just user})}) = do
             -- Get a chat id
             let cid           = chat_id (chat msg)
                 newStory item = modifyMVar_ chats (return . I.insert cid item)
@@ -104,7 +107,7 @@ storyHandler chats stories help = go
 
                             -- Story pipeline
                             let pipeline = fromChan chan
-                                        >-> (story (chat msg) >>= yield)
+                                        >-> (story (user, chat msg) >>= yield)
                                         >-> toSender (sendMessageBot (chat msg))
 
                             -- Story effect
@@ -119,10 +122,10 @@ storyHandler chats stories help = go
                             liftIO (newStory (chan, tid))
         go _ = return ()
 
-sendMessageBot :: Chat -> BotMessage -> Bot ()
+sendMessageBot :: BotConfig a => Chat -> BotMessage -> Bot a ()
 sendMessageBot c msg = do
     (manager, config) <- ask
-    liftIO $ send (textChatId c) (token config) manager msg
+    liftIO $ send (textChatId c) (authToken config) manager msg
   where textChatId = pack . show . chat_id
 
         send cid tok mgr BotTyping =
@@ -144,7 +147,7 @@ sendMessageBot c msg = do
              in sendMessage tok r mgr >> return ()
 
 -- | User story handler
-storyBot :: ToBotMessage help => help -> Map Text Story -> Bot ()
+storyBot :: (BotConfig a, ToBotMessage help) => help -> Map Text (Story a) -> Bot a ()
 storyBot help stories = do
     -- Create map from user to it story
     chats <- liftIO (newMVar I.empty)
@@ -152,15 +155,15 @@ storyBot help stories = do
     updateLoop (storyHandler chats stories $ toMessage help)
 
 -- | Run bot monad
-runBot :: Config -> Bot a -> IO a
+runBot :: BotConfig a => a -> Bot a b -> IO b
 runBot config bot = do
     -- Init connection manager
     manager <- newManager tlsManagerSettings
     -- Check connection
-    trySelf (token config) manager
+    trySelf (authToken config) manager
     -- Run bot
     runReaderT bot (manager, config)
 
 -- Fork bot thread
-forkBot :: Bot () -> Bot ThreadId
+forkBot :: BotConfig a => Bot a () -> Bot a ThreadId
 forkBot bot = ask >>= liftIO . forkIO . runReaderT bot
