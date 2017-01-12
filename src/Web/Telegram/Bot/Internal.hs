@@ -9,13 +9,10 @@
 --
 -- Telegram Bot runners.
 --
-module Web.Telegram.Bot.Internal (runBot, storyBot, sendMessageBot, forkBot) where
+module Web.Telegram.Bot.Internal (storyBot, sendMessageBot) where
 
-import Control.Concurrent (forkIO, forkFinally, killThread, ThreadId)
-import Control.Monad.Trans.Reader (runReaderT, ask)
-import Network.HTTP.Client.TLS (tlsManagerSettings)
-import Network.HTTP.Client (newManager, Manager)
-import Control.Exception (throwIO)
+import Control.Concurrent (forkFinally, killThread, ThreadId)
+import Network.HTTP.Client (Manager)
 import Data.IntMap.Strict as I
 import Control.Concurrent.Chan
 import Control.Concurrent.MVar
@@ -27,15 +24,6 @@ import Data.Map.Strict as M
 import Web.Telegram.API.Bot
 import Pipes
 
--- | Try connection with Telegram Bot API
-trySelf :: Token -> Manager -> IO ()
-trySelf tok mgr = do
-    me <- getMe tok mgr
-    case me of
-        Left e -> throwIO e
-        Right (Response u) ->
-            putStrLn $ "Hello! I'm " ++ show (user_first_name u)
-
 -- | Infinity loop for getting updates from API
 updateLoop :: BotConfig a
            => (Update -> Bot a ())
@@ -44,13 +32,14 @@ updateLoop :: BotConfig a
 updateLoop handler = go 0
   where updates o t = getUpdates t (Just o) Nothing . Just
         go offset = do
-            (manager, config) <- ask
+            mgr     <- manager
+            timeout <- pollTimeout
+            token   <- authToken
             -- Take updates
-            upd <- liftIO $
-                updates offset (authToken config) (pollTimeout config) manager
+            upd <- liftIO (updates offset token timeout mgr)
             -- Check for errors
             case result <$> upd of
-                Left e   -> liftIO (throwIO e)
+                Left e   -> liftIO (print e)
                 Right [] -> go offset
                 Right xs  -> do
                     -- Run handler for any update
@@ -110,22 +99,19 @@ storyHandler chats stories help = go
                                         >-> (story (user, chat msg) >>= yield)
                                         >-> toSender (sendMessageBot (chat msg))
 
-                            -- Story effect
-                            (manager, config) <- ask
-                            let runStory = runReaderT (runEffect pipeline)
-                                                      (manager, config)
-
                             -- Run story in separate thread
-                            tid <- liftIO $ forkFinally runStory
-                                                        (const deleteStory)
+                            tid <- forkBotFinally (runEffect pipeline)
+                                                  (const deleteStory)
+
                             -- Update chanMap
                             liftIO (newStory (chan, tid))
         go _ = return ()
 
 sendMessageBot :: BotConfig a => Chat -> BotMessage -> Bot a ()
 sendMessageBot c msg = do
-    (manager, config) <- ask
-    liftIO $ send (textChatId c) (authToken config) manager msg
+    mgr <- manager
+    token <- authToken
+    liftIO $ send (textChatId c) token mgr msg
   where textChatId = pack . show . chat_id
 
         send cid tok mgr BotTyping =
@@ -153,17 +139,3 @@ storyBot help stories = do
     chats <- liftIO (newMVar I.empty)
     -- Run update loop
     updateLoop (storyHandler chats stories $ toMessage help)
-
--- | Run bot monad
-runBot :: BotConfig a => a -> Bot a b -> IO b
-runBot config bot = do
-    -- Init connection manager
-    manager <- newManager tlsManagerSettings
-    -- Check connection
-    trySelf (authToken config) manager
-    -- Run bot
-    runReaderT bot (manager, config)
-
--- Fork bot thread
-forkBot :: BotConfig a => Bot a () -> Bot a ThreadId
-forkBot bot = ask >>= liftIO . forkIO . runReaderT bot

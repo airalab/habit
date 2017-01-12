@@ -22,10 +22,12 @@ helloStory _ = hello <$> question "How your name?"
 helpMessage :: Text
 helpMessage = "Hello, I'm hello bot!"
 
-data MyBot = MyBot
+data MyBot
 instance BotConfig MyBot where
-    authToken = const $ Token "bot..."
+    authToken = return $ Token "bot..."
 
 main :: IO ()
-main = runBot MyBot $ do
-            storyBot helpMessage [("/hello", helloStory)]
+main = runBot myStory
+  where
+    myStory :: Bot MyBot ()
+    myStory = storyBot helpMessage [("/hello", helloStory)]

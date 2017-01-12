@@ -11,7 +11,7 @@
 -- command handlers:
 --
 -- @
---      helloStory :: Story
+--      helloStory :: BotConfig a => Story a
 --      helloStory _ = hello <$> question "How your name?"
 --                           <*> question "How your surname?"
 --                           <*> question "How old are you?"
@@ -29,6 +29,7 @@ module Web.Telegram.Bot (
   , Token(..)
   , StoryT
   , Story
+  , Bot
   -- ** Story makers
   , select
   , replica

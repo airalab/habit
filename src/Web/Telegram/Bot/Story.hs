@@ -16,7 +16,7 @@
 --          "Hello, " <> name <> " " <> surname <> "!\n"
 --       <> "You lost " <> (pack $ show age) <> " years =)"
 --
---      helloStory :: Story
+--      helloStory :: BotConfig a => Story a
 --      helloStory _ = hello <$> question "How your name?"
 --                           <*> question "How your surname?"
 --                           <*> question "How old are you?"
@@ -34,7 +34,7 @@ import qualified Data.Text as T
 import Data.Text (Text, pack)
 
 -- | Story is a pipe from user message to bot message
--- and result is a final message bot.
+-- and result is a final bot message.
 type Story a = (User, Chat) -> StoryT (Bot a) BotMessage
 type StoryT = Pipe Message BotMessage
 
