@@ -19,10 +19,8 @@
 --
 module Web.Telegram.Bot (
   -- * Exported types
-  -- ** API types
-    module Web.Telegram.API.Bot.Data
   -- ** Story types
-  , ToBotMessage(..)
+    ToBotMessage(..)
   , BotMessage(..)
   , BotConfig(..)
   , Answer(..)
