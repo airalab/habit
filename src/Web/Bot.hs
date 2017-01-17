@@ -1,5 +1,5 @@
 -- |
--- Module      :  Web.Telegram.Bot
+-- Module      :  Web.Bot
 -- Copyright   :  Alexander Krupenkin 2016
 -- License     :  BSD3
 --
@@ -7,8 +7,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Telegram Bot API microframework for creating story like
--- command handlers:
+-- Text message bot framework for creating story like:
 --
 -- @
 --      helloStory :: BotConfig a => Story a
@@ -17,33 +16,36 @@
 --                           <*> question "How old are you?"
 -- @
 --
-module Web.Telegram.Bot (
-  -- * Exported types
-  -- ** Story types
-    ToBotMessage(..)
-  , BotMessage(..)
-  , BotConfig(..)
+module Web.Bot (
+  -- ** Story & message types
+    ToMessage(..)
   , Answer(..)
-  , Token(..)
+  , Message
   , StoryT
   , Story
-  , Bot
   -- ** Story makers
-  , select
-  , replica
   , question
+  , replica
+  , select
+  -- ** Bot monad & configuration classes
+  , Bot
+  , Platform(..)
+  , APIToken(..)
+  -- ** Bot platforms
+  , Telegram
   -- ** Bot runners
-  , sendMessageBot
   , storyBot
   , forkBot
   , runBot
   -- ** Re-exports
+  , yield
+  , await
   , lift
   ) where
 
-import Web.Telegram.API.Bot.Data
-import Web.Telegram.Bot.Internal
-import Web.Telegram.Bot.Types
-import Web.Telegram.Bot.Story
-import Web.Telegram.API.Bot
-import Pipes (lift)
+import Pipes (yield, await, lift)
+import Web.Bot.Story.Internal
+import Web.Bot.Platform.Telegram
+import Web.Bot.Platform
+import Web.Bot.Message
+import Web.Bot.Story

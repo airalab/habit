@@ -1,5 +1,5 @@
 -- |
--- Module      :  Web.Telegram.Bot.Story
+-- Module      :  Web.Bot.Story
 -- Copyright   :  Alexander Krupenkin 2016
 -- License     :  BSD3
 --
@@ -7,14 +7,14 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Story is a dialog like abstraction for processing data from
--- user sparsed by messages.
+-- Story is a dialog like abstraction for processing sparsed
+-- by messages data from user.
 --
 -- @
 --      hello :: Monad m => Text -> Text -> Int -> m BotMessage
 --      hello name surname age = toMessage $
 --          "Hello, " <> name <> " " <> surname <> "!\n"
---       <> "You lost " <> (pack $ show age) <> " years =)"
+--       <> "You lost " <> (T.pack $ show age) <> " years =)"
 --
 --      helloStory :: BotConfig a => Story a
 --      helloStory _ = hello <$> question "How your name?"
@@ -22,40 +22,23 @@
 --                           <*> question "How old are you?"
 -- @
 --
-module Web.Telegram.Bot.Story where
+module Web.Bot.Story where
 
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
-import Web.Telegram.API.Bot (Message, Chat, User, text)
 import Data.Text.Read (signed, decimal, double)
 import Control.Monad.IO.Class (MonadIO)
-import Web.Telegram.Bot.Types (Bot)
 import Pipes (Pipe, await, yield)
 import qualified Data.Text as T
-import Data.Text (Text, pack)
+import Data.Text (Text)
+
+import Web.Bot.Message (Message(..), ToMessage(..))
+import Web.Bot.Platform (Bot)
+import Web.Bot.User (User)
 
 -- | Story is a pipe from user message to bot message
 -- and result is a final bot message.
-type Story a = (User, Chat) -> StoryT (Bot a) BotMessage
-type StoryT = Pipe Message BotMessage
-
--- | Bot message data.
-data BotMessage
-  = BotTyping
-  | BotText Text
-  | BotKeyboard Text [[Text]]
-  deriving Show
-
--- | Bot message typeclass for conversion.
-class ToBotMessage a where
-    toMessage :: a -> BotMessage
-
--- | Idenity instance
-instance ToBotMessage BotMessage where
-    toMessage = id
-
--- | Simple text question send text message from bot
-instance ToBotMessage Text where
-    toMessage = BotText
+type Story a = User -> StoryT (Bot a) Message
+type StoryT = Pipe Message Message
 
 -- | The value can be passed to story handler function.
 class Answer a where
@@ -63,16 +46,14 @@ class Answer a where
 
 -- | Simple text answer, pass any text message
 instance Answer Text where
-    parse x =
-        case text x of
-            Just t  -> return t
-            Nothing -> throwE "Please send text message."
+    parse (MsgText x) = return x
+    parse _           = throwE "Please send text message."
 
 instance Answer Double where
     parse x = do
         t <- parse x
         case signed double t of
-            Left e -> throwE (pack e)
+            Left e -> throwE (T.pack e)
             Right (v, "") -> return v
             Right _       -> throwE "Please use only 0-9 and '.' chars."
 
@@ -80,7 +61,7 @@ instance Answer Integer where
     parse x = do
         t <- parse x
         case signed decimal t of
-            Left e -> throwE (pack e)
+            Left e -> throwE (T.pack e)
             Right (v, x) -> if T.null x
                             then return v
                             else throwE "Please use only 0-9 chars."
@@ -98,7 +79,7 @@ instance Answer Word where
 -- | Reply keyboard selection
 select :: (MonadIO m, Answer a) => Text -> [[Text]] -> StoryT m a
 {-# INLINE select #-}
-select q = replica . BotKeyboard q
+select q = replica . MsgKeyboard q
 
 -- | Bot text question.
 question :: (MonadIO m, Answer a) => Text -> StoryT m a
@@ -108,11 +89,11 @@ question = replica
 -- | Generalized story maker.
 -- The replica send to user, when answer isn't parsed
 -- the error send to user and waiting for correct answer.
-replica :: (ToBotMessage a, MonadIO m, Answer b) => a -> StoryT m b
+replica :: (ToMessage a, MonadIO m, Answer b) => a -> StoryT m b
 replica msg = do
     yield (toMessage msg)
     res <- runExceptT . parse =<< await
-    yield BotTyping
+    yield MsgTyping
     case res of
         Left e  -> replica e
         Right a -> return a
