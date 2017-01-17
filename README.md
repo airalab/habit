@@ -1,10 +1,10 @@
 ## Telegram bot with Haskell
 
-[![Build Status](https://travis-ci.org/akru/telegram-bot.svg?branch=master)](https://travis-ci.org/akru/telegram-bot)
+[![Build Status](https://travis-ci.org/airalab/habit.svg?branch=master)](https://travis-ci.org/airalab/habit)
 
 ### Install
 
-    $ git clone https://github.com/akru/telegram-bot && cd telegram-bot
+    $ git clone https://github.com/airalab/habit && cd habit
     $ stack setup
     $ stack ghci
 
@@ -14,7 +14,7 @@ The `Story` is an abstraction about sparsed data getted from user
 though dialogue.
 
 ```haskell
-helloStory :: Story
+helloStory :: Story a
 helloStory _ = hello <$> question "How your name?"
                      <*> question "How your surname?"
                      <*> question "How old are you?"
@@ -35,13 +35,17 @@ hello name surname age = do
 ```
 
 To run the `Story` simple pass it to `storyBot` as value of mapping between
-command an story.
+command an story. `APIToken` type class defines token for given platform,
+e.g. Telegram platform.
 
 ```haskell
+instance APIToken Telegram where
+    apiToken = "bot..."
+
 main :: IO ()
-main = runBot config $ do
-            storyBot helpMessage [("/hello", helloStory)]
-  where config = defaultConfig { token = Token "bot..." }
+main = runBot myBot
+  where myBot :: Bot Telegram ()
+        myBot = storyBot helpMsg [("/hello", helloStory)]
 ```
 
 Full example [text](examples/Hello.hs).
