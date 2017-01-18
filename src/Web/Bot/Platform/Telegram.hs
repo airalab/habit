@@ -89,6 +89,8 @@ withUpdate f update = case go of
             Nothing -> ""
     mkUser = User <$> (fmap (API.chat_id . API.chat) $ API.message update)
                   <*> (fmap formatUserName (API.message update >>= API.from))
+                  -- TODO: User identity
+                  <*> return ""
     mkMessage = MsgText <$> (API.message update >>= API.text)
 
 _sendMessage :: (ToMessage msg, APIToken a) => User -> msg -> Bot a ()

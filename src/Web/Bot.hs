@@ -23,6 +23,7 @@ module Web.Bot (
   , Message
   , StoryT
   , Story
+  , User
   -- ** Story makers
   , question
   , replica
@@ -33,6 +34,10 @@ module Web.Bot (
   , APIToken(..)
   -- ** Bot platforms
   , Telegram
+  -- ** Bot storage
+  , Persist(..)
+  , Connection(..)
+  , ConnectInfo(..)
   -- ** Bot runners
   , storyBot
   , forkBot
@@ -47,5 +52,7 @@ import Pipes (yield, await, lift)
 import Web.Bot.Story.Internal
 import Web.Bot.Platform.Telegram
 import Web.Bot.Platform
+import Web.Bot.Persist
 import Web.Bot.Message
 import Web.Bot.Story
+import Web.Bot.User

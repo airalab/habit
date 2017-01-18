@@ -1,6 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ConstrainedClassMethods    #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
 -- |
 -- Module      :  Web.Bot.Platform
 -- Copyright   :  Alexander Krupenkin 2017
@@ -24,11 +26,13 @@ module Web.Bot.Platform (
 
 import Control.Monad.Logger (MonadLogger(..), LoggingT, runStderrLoggingT)
 import Control.Monad.Trans.Reader (ReaderT, runReaderT, ask)
+import Control.Monad.Trans.Control (MonadBaseControl(..))
 import Control.Concurrent (forkIO, forkFinally, ThreadId)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Control.Exception (throwIO, SomeException)
 import Network.HTTP.Client (newManager, Manager)
 import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Base (MonadBase(..))
 import qualified Data.Text as T
 import Data.Monoid ((<>))
 import Data.Text (Text)
@@ -38,11 +42,19 @@ import Web.Bot.User (User)
 import Web.Bot.Log
 
 -- | Message bot monad
-newtype Bot a b = Bot (ReaderT Manager (LoggingT IO) b)
+newtype Bot a b = Bot { unBot :: ReaderT Manager (LoggingT IO) b }
   deriving (Functor, Applicative, Monad, MonadIO)
 
 instance MonadLogger (Bot a) where
     monadLoggerLog a b c d = Bot (monadLoggerLog a b c d)
+
+instance MonadBase IO (Bot a) where
+    liftBase = liftIO
+
+instance MonadBaseControl IO (Bot a) where
+    type StM (Bot a) b = b
+    liftBaseWith f = Bot $ liftBaseWith $ \r -> f (r . unBot)
+    restoreM = return
 
 -- | Message bot platform
 -- Different platforms provide message bot API,

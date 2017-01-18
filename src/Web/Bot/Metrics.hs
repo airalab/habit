@@ -5,7 +5,7 @@
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE GADTs                      #-}
 -- |
--- Module      :  Web.Bot.User
+-- Module      :  Web.Bot.Metrics
 -- Copyright   :  Alexander Krupenkin 2017
 -- License     :  BSD3
 --
@@ -13,19 +13,26 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Common used user model.
+-- Bot metrics utils.
 --
-module Web.Bot.User where
+module Web.Bot.Metrics where
 
 import Database.Persist.TH
 import Database.Persist
 import Data.Text (Text)
+import Web.Bot.User
 
-share [mkPersist sqlSettings, mkMigrate "migrateUser"] [persistLowerCase|
-User
-    chat  Int
-    name  Text
-    ident Text Unique
-    UserIdentity ident
+share [mkPersist sqlSettings, mkMigrate "migrateMetrics"] [persistLowerCase|
+UserStat
+    ident      Text Unique
+    messageOut Int
+    messageIn  Int
+    StatUser ident
+    deriving Show
+
+StoryStat
+    name      Text Unique
+    calls     Int
+    StatStory name
     deriving Show
 |]

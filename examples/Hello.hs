@@ -25,6 +25,9 @@ helpMsg = "Hello, I'm hello bot!"
 instance APIToken Telegram where
     apiToken = return "bot308165623:AAGeMyzyedc787LZSpzlhwTCWQcO5CAZpAo"
 
+instance Persist Telegram where
+    persist = return $ Sqlite "storage.db"
+
 main :: IO ()
 main = runBot myStory
   where

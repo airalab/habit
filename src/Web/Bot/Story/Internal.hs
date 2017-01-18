@@ -24,21 +24,32 @@ import Data.Text (Text)
 import Pipes
 
 import Web.Bot.Platform
+import Web.Bot.Metrics
+import Web.Bot.Persist
 import Web.Bot.Message
 import Web.Bot.Story
 import Web.Bot.User
 import Web.Bot.Log
 
 -- | 'Producer' from 'Chan' creator
-fromChan :: MonadIO m => Chan a -> Producer a m ()
+fromChan :: MonadIO m => Chan b -> Producer b m ()
 fromChan c = forever $ liftIO (readChan c) >>= yield
 
 -- | Incoming messages will be sended
-toSender :: MonadIO m => (Message -> m ()) -> Consumer Message m ()
-toSender sender = forever $ await >>= lift . sender
+toSender :: (APIToken a, Persist a)
+         => User
+         -> (User -> Message -> Bot a ())
+         -> Consumer Message (Bot a) ()
+toSender u sender = forever $ do
+    await >>= lift . sender u
+    -- Metrics
+    lift $ runDB $ upsertBy (StatUser $ userIdent u)
+                            (UserStat (userIdent u) 0 1)
+                            [UserStatMessageOut +=. 1]
+
 
 -- | Chat ID based message splitter
-storyHandler :: (APIToken a, ToMessage help)
+storyHandler :: (Persist a, APIToken a, ToMessage help)
              => MVar (IntMap (Chan Message, ThreadId))
              -> Map Message (Story a)
              -> help
@@ -49,6 +60,15 @@ storyHandler chats stories help user msg = do
                                     (return . I.insert (userChat user) item)
         deleteStory   = modifyMVar_ chats
                                     (return . I.delete (userChat user))
+    -- Metrics
+    runDB $ do
+        upsertBy (StatUser $ userIdent user)
+                 (UserStat (userIdent user) 0 1)
+                 [UserStatMessageIn +=. 1]
+        upsertBy (UserIdentity $ userIdent user)
+                 user
+                 [ UserName =. userName user
+                 , UserChat =. userChat user ]
 
     chatMap <- liftIO (readMVar chats)
     -- Lookup chat id in the map
@@ -81,19 +101,25 @@ storyHandler chats stories help user msg = do
                     -- Story pipeline
                     let pipeline = fromChan chan
                                 >-> (story user >>= yield)
-                                >-> toSender (sendMessage user)
+                                >-> toSender user sendMessage
                     -- Run story in separate thread
                     tid <- forkFinallyBot (runEffect pipeline)
                                           (const deleteStory)
                     -- Update userMap
                     liftIO (newStory (chan, tid))
-                    $logDebugS "Story" ("Story "
-                                        <> T.pack (show msg)
+
+                    -- Log and update metrics
+                    let sname = T.pack (show msg)
+                    runDB $ upsertBy (StatStory sname)
+                                     (StoryStat sname 1)
+                                     [StoryStatCalls +=. 1]
+                    $logDebugS "Story" ("Story " <> sname
                                         <> " spawned at "
                                         <> T.pack (show tid) <> ".")
 
+
 -- | User story handler
-storyBot :: (APIToken a, ToMessage help)
+storyBot :: (Persist a, APIToken a, ToMessage help)
          => help -> Map Message (Story a) -> Bot a ()
 storyBot help stories = do
     -- Create map from user chat to it story

@@ -1,5 +1,5 @@
 name:                habit
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Haskell message bot framework
 description:         Framework for building text message bots for popular platforms
 homepage:            https://github.com/airalab/habit#readme
@@ -29,19 +29,27 @@ library
                      , Web.Bot.User
                      , Web.Bot.Story
                      , Web.Bot.Message
+                     , Web.Bot.Metrics
+                     , Web.Bot.Persist
                      , Web.Bot.Platform
                      , Web.Bot.Platform.Telegram
   other-modules:       Web.Bot.Story.Internal
   build-depends:       base >= 4.7 && < 4.10
                      , persistent-postgresql
                      , persistent-template
+                     , persistent-sqlite
+                     , persistent-mysql
                      , http-client-tls
+                     , fbmessenger-api
+                     , transformers-base
+                     , monad-control
                      , transformers
                      , monad-logger
                      , telegram-api
                      , http-client
                      , persistent
                      , containers
+                     , resourcet
                      , pipes
                      , text
   default-language:    Haskell2010
