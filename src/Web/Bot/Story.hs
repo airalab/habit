@@ -38,13 +38,15 @@ import Web.Bot.User (User)
 -- | Story is a pipe from user message to bot message
 -- and result is a final bot message.
 type Story a = User -> StoryT (Bot a) Message
+
+-- | Story transformer is based on 'Pipe'
+-- with fixed 'Message' in/out.
 type StoryT = Pipe Message Message
 
--- | The value can be passed to story handler function.
+-- | User message reply parser.
 class Answer a where
     parse :: MonadIO m => Message -> ExceptT Text m a
 
--- | Simple text answer, pass any text message
 instance Answer Text where
     parse (MsgText x) = return x
     parse _           = throwE "Please send text message."
@@ -87,8 +89,8 @@ question :: (MonadIO m, Answer a) => Text -> StoryT m a
 question = replica
 
 -- | Generalized story maker.
--- The replica send to user, when answer isn't parsed
--- the error send to user and waiting for correct answer.
+-- The replica send message to user, when answer isn't parsed
+-- the error be sended and wait for correct answer.
 replica :: (ToMessage a, MonadIO m, Answer b) => a -> StoryT m b
 replica msg = do
     yield (toMessage msg)

@@ -56,7 +56,7 @@ instance MonadBaseControl IO (Bot a) where
     liftBaseWith f = Bot $ liftBaseWith $ \r -> f (r . unBot)
     restoreM = return
 
--- | Message bot platform
+-- | Message bot platform.
 -- Different platforms provide message bot API,
 -- e.g. Telegram, Viber, Facebook Messenger etc.
 -- This is generalized interface to it.
@@ -77,6 +77,7 @@ class Platform a where
     -- | Short description of platform
     platformName :: a -> Text
 
+-- | Bot authentification in platform
 -- Instance of it should be writen by user
 class Platform a => APIToken a where
     apiToken :: Bot a Text

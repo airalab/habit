@@ -31,7 +31,6 @@ instance IsString Message where
 class ToMessage a where
     toMessage :: a -> Message
 
--- | Idenity instance
 instance ToMessage Message where
     toMessage = id
 

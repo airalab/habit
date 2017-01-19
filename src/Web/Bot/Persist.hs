@@ -43,14 +43,17 @@ import Web.Bot.Log
 import Web.Bot.Metrics
 import Web.Bot.User
 
+-- | Database connection information
 data Connection = Postgresql ConnectionString
                 | Sqlite Text
                 | MySQL ConnectInfo
   deriving (Eq, Show)
 
+-- | Connection info provider
 class Platform a => Persist a where
     persist :: Bot a Connection
 
+-- | Run some staff with database connection
 runDB :: Persist a
       => ReaderT SqlBackend (NoLoggingT (ResourceT IO)) b
       -> Bot a b
