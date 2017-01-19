@@ -1,5 +1,5 @@
 name:                habit
-version:             0.2.0.1
+version:             0.2.1.0
 synopsis:            Haskell message bot framework
 description:         Framework for building text message bots for popular platforms
 homepage:            https://github.com/airalab/habit#readme
@@ -49,6 +49,7 @@ library
                      , http-client
                      , persistent
                      , containers
+                     , cryptonite
                      , resourcet
                      , pipes
                      , text

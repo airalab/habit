@@ -12,11 +12,15 @@
 --
 module Web.Bot.Platform.Telegram (Telegram) where
 
+import Crypto.Hash (hash, Digest, Keccak_256)
 import qualified Web.Telegram.API.Bot as API
 import Control.Monad.IO.Class (liftIO)
+import Data.Text.Encoding (encodeUtf8)
 import Control.Exception (throwIO)
 import qualified Data.Text as T
 import Data.Monoid ((<>))
+import Data.Text (Text)
+
 import Web.Bot.Platform
 import Web.Bot.Message
 import Web.Bot.User
@@ -74,6 +78,11 @@ _messageHandler handler = go 0
                     -- Step for the new offset
                     go (maximum (API.update_id <$> xs) + 1)
 
+sha3 :: Text -> Text
+sha3 x = T.pack (show digest)
+  where digest :: Digest Keccak_256
+        digest = hash (encodeUtf8 x)
+
 withUpdate :: APIToken a
            => (User -> Message -> Bot a b)
            -> API.Update
@@ -87,10 +96,10 @@ withUpdate f update = case go of
         case API.user_last_name u of
             Just last_name -> " " <> last_name
             Nothing -> ""
+    formatUserHash u = sha3 ("telegram-" <> T.pack (show $ API.user_id u))
     mkUser = User <$> (fmap (API.chat_id . API.chat) $ API.message update)
                   <*> (fmap formatUserName (API.message update >>= API.from))
-                  -- TODO: User identity
-                  <*> return ""
+                  <*> (fmap formatUserHash (API.message update >>= API.from))
     mkMessage = MsgText <$> (API.message update >>= API.text)
 
 _sendMessage :: (ToMessage msg, APIToken a) => User -> msg -> Bot a ()
