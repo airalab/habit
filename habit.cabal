@@ -1,5 +1,5 @@
 name:                habit
-version:             0.2.1.1
+version:             0.2.1.2
 synopsis:            Haskell message bot framework
 description:         Framework for building text message bots for popular platforms
 homepage:            https://github.com/airalab/habit#readme
@@ -11,6 +11,9 @@ copyright:           Alexander Krupenkin
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
+
+extra-source-files:
+  README.md
 
 executable hello-bot
   hs-source-dirs:      examples
