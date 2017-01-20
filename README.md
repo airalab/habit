@@ -1,6 +1,11 @@
-## Telegram bot with Haskell
+## Haskell Bot it :: Message bot framework
 
 [![Build Status](https://travis-ci.org/airalab/habit.svg?branch=master)](https://travis-ci.org/airalab/habit)
+[![Build status](https://ci.appveyor.com/api/projects/status/jgydugfn3tx8o56g?svg=true)](https://ci.appveyor.com/project/akru/habit)
+[![Hackage](https://img.shields.io/hackage/v/habit.svg)](http://hackage.haskell.org/package/habit)
+![Hackage Dependencies](https://img.shields.io/hackage-deps/v/habit.svg)
+![Haskell Programming Language](https://img.shields.io/badge/language-Haskell-blue.svg)
+![BSD3 License](http://img.shields.io/badge/license-BSD3-brightgreen.svg)
 
 ### Install
 
