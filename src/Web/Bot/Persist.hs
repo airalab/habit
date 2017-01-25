@@ -47,7 +47,7 @@ import Web.Bot.User
 data Connection = Postgresql ConnectionString
                 | Sqlite Text
                 | MySQL ConnectInfo
-  deriving (Eq, Show)
+  deriving (Read, Eq, Show)
 
 -- | Connection info provider
 class Platform a => Persist a where
