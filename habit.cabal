@@ -51,7 +51,7 @@ library
                      , telegram-api          >=0.5.0.1  && <0.6
                      , http-client           >=0.4.31.2 && <0.5
                      , containers            >=0.5.7.1  && <0.6
-                     , cryptonite            ==0.19.*
+                     , cryptonite            ==0.21.*
                      , resourcet             >=1.1.8.1  && <1.2
                      , pipes                 >=4.1.9    && <4.2
                      , text                  >=1.2.2.1  && <1.3
