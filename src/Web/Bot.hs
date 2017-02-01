@@ -34,6 +34,7 @@ module Web.Bot (
   , APIToken(..)
   -- ** Bot platforms
   , Telegram
+  , FBMessenger
   -- ** Bot storage
   , Persist(..)
   , Connection(..)
@@ -50,6 +51,7 @@ module Web.Bot (
 
 import Pipes (yield, await, lift)
 import Web.Bot.Story.Internal
+import Web.Bot.Platform.FBMessenger
 import Web.Bot.Platform.Telegram
 import Web.Bot.Platform
 import Web.Bot.Persist
